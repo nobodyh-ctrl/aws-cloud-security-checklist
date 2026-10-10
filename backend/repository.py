@@ -1,0 +1,52 @@
+"""Único módulo que habla con DynamoDB. El resto del código no sabe que existe boto3."""
+
+import os
+
+import boto3
+from boto3.dynamodb.conditions import Attr
+
+# --- Cold start: se ejecuta una vez por entorno de ejecución ---
+TABLE_NAME = os.environ["TABLE_NAME"]
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table(TABLE_NAME)
+
+
+def _scan_all(**scan_kwargs):
+    """Scan paginado: un Scan devuelve como máximo 1 MB por llamada."""
+    items = []
+    while True:
+        response = table.scan(**scan_kwargs)
+        items.extend(response.get("Items", []))
+        last_key = response.get("LastEvaluatedKey")
+        if not last_key:
+            return items
+        scan_kwargs["ExclusiveStartKey"] = last_key
+
+
+def list_controls():
+    return _scan_all()
+
+
+def get_control(control_id):
+    """Retorna el control o None si no existe."""
+    response = table.get_item(Key={"id": control_id})
+    return response.get("Item")
+
+
+def find_control_by_code(code):
+    """Busca un control por code paginando el scan. Retorna el item o None."""
+    # Sin Limit: en un Scan con filtro, Limit acota los items LEÍDOS, no los devueltos
+    scan_kwargs = {"FilterExpression": Attr("code").eq(code)}
+    while True:
+        response = table.scan(**scan_kwargs)
+        if response.get("Items"):
+            return response["Items"][0]
+        last_key = response.get("LastEvaluatedKey")
+        if not last_key:
+            return None
+        scan_kwargs["ExclusiveStartKey"] = last_key
+
+
+def create_control(item):
+    # put_item sobrescribe sin avisar si la clave existe; la condición lo impide
+    table.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
