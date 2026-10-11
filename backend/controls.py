@@ -54,6 +54,33 @@ def create_control(event):
     return build_response(201, {"item": item})
 
 
+def update_control(event):
+    control_id, err = validate_control_id(event.get("pathParameters", {}).get("id"))
+    if err:
+        return error_response(400, err)
+
+    body, err_response = parse_json_body(event)
+    if err_response:
+        return err_response
+
+    cleaned, err = validate_fields(body, partial=True)
+    if err:
+        return error_response(400, err)
+
+    if "code" in cleaned:
+        existing = repository.find_control_by_code(cleaned["code"])
+        if existing and existing["id"] != control_id:
+            return error_response(409, f"Ya existe un control con el código '{cleaned['code']}'.")
+
+    cleaned["updated_at"] = _now_utc()
+
+    item = repository.update_control(control_id, cleaned)
+    if item is None:
+        return error_response(404, "Control no encontrado.")
+
+    return build_response(200, {"item": item})
+
+
 def hello(event):
     """Ruta de prueba de la Etapa 5. Se elimina al terminar el CRUD."""
     body, err_response = parse_json_body(event)

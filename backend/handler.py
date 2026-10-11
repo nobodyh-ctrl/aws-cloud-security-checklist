@@ -6,6 +6,7 @@ ROUTES = {
     "GET /controls/{id}": controls.get_control,
     "POST /controls": controls.create_control,
     "POST /hello": controls.hello,
+    "PATCH /controls/{id}": controls.update_control,
 }
 
 

@@ -50,3 +50,22 @@ def find_control_by_code(code):
 def create_control(item):
     # put_item sobrescribe sin avisar si la clave existe; la condición lo impide
     table.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
+
+def update_control(control_id, fields):
+    """Actualiza los campos indicados. Retorna el item actualizado o None si no existe."""
+    names = {f"#{k}": k for k in fields}
+    values = {f":{k}": v for k, v in fields.items()}
+    expression = "SET " + ", ".join(f"#{k} = :{k}" for k in fields)
+
+    try:
+        response = table.update_item(
+            Key={"id": control_id},
+            UpdateExpression=expression,
+            ExpressionAttributeNames=names,
+            ExpressionAttributeValues=values,
+            ConditionExpression="attribute_exists(id)",
+            ReturnValues="ALL_NEW",
+        )
+        return response["Attributes"]
+    except table.meta.client.exceptions.ConditionalCheckFailedException:
+        return None

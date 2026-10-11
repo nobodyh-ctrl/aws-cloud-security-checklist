@@ -17,16 +17,19 @@ FIELD_RULES = {
 }
 
 
-def validate_fields(body):
-    """Valida tipo, strip, obligatorio, largo y enums. Retorna (cleaned, None) o (None, mensaje_error)."""
+def validate_fields(body, partial=False):
+    """Valida tipo, strip, obligatorio, largo y enums. Retorna (cleaned, None) o (None, mensaje_error).
+    En modo partial=True ningún campo es obligatorio, no se aplican defaults y solo se devuelven los campos presentes.
+    """
     cleaned = {}
     for field, rules in FIELD_RULES.items():
         value = body.get(field)
 
         if value is None:
-            if rules["required"]:
+            if not partial and rules["required"]:
                 return None, f"El campo '{field}' es requerido."
-            cleaned[field] = rules.get("default")
+            if not partial:
+                cleaned[field] = rules.get("default")
             continue
 
         if not isinstance(value, str):
@@ -44,6 +47,9 @@ def validate_fields(body):
             return None, f"'{field}' debe ser uno de: {', '.join(sorted(rules['allowed']))}."
 
         cleaned[field] = value
+
+    if partial and not cleaned:
+        return None, "No hay campos válidos para actualizar."
 
     return cleaned, None
 
